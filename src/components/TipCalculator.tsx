@@ -22,25 +22,33 @@ import {
   Receipt,
   Plus,
   Minus,
-  HelpCircle,
 } from 'lucide-react';
 
 const TIP_OPTIONS = [10, 15, 18, 20, 25];
 
 export default function TipCalculator() {
-  const [billAmount, setBillAmount] = useState('100.00');
+  // Empty initial values so no static results are shown on first page visit
+  const [billAmount, setBillAmount] = useState('');
   const [tipPercentage, setTipPercentage] = useState(15);
   const [customTip, setCustomTip] = useState('');
   const [isCustomTip, setIsCustomTip] = useState(false);
   const [numberOfPeople, setNumberOfPeople] = useState(2);
   const [tipOnPreTax, setTipOnPreTax] = useState(false);
-  const [taxAmount, setTaxAmount] = useState('10.00');
+  const [taxAmount, setTaxAmount] = useState('');
   const [roundUp, setRoundUp] = useState<'none' | 'total' | 'perPerson'>('none');
   const [copied, setCopied] = useState(false);
 
-  // Validation
+  const isBillEmpty = !billAmount.trim();
+
+  // Validation: only validate when user has interacted or entered data
   const errors = useMemo(() => {
     const errs: Record<string, CalculationError> = {};
+
+    if (isBillEmpty) {
+      // Do not display error banners on pristine empty state
+      return errs;
+    }
+
     const billErr = validateBillAmount(billAmount);
     if (billErr) errs.bill = billErr;
 
@@ -50,7 +58,7 @@ export default function TipCalculator() {
     const peopleErr = validateNumberOfPeople(numberOfPeople);
     if (peopleErr) errs.people = peopleErr;
 
-    if (tipOnPreTax) {
+    if (tipOnPreTax && taxAmount.trim()) {
       const billNum = parseFloat(billAmount) || 0;
       const taxNum = parseFloat(taxAmount) || 0;
       const taxErr = validateTaxAmount(taxNum, billNum);
@@ -58,14 +66,16 @@ export default function TipCalculator() {
     }
 
     return errs;
-  }, [billAmount, tipPercentage, numberOfPeople, tipOnPreTax, taxAmount]);
+  }, [billAmount, isBillEmpty, tipPercentage, numberOfPeople, tipOnPreTax, taxAmount]);
 
   // Calculation Result
   const result = useMemo(() => {
-    if (Object.keys(errors).length > 0) return null;
+    if (isBillEmpty || Object.keys(errors).length > 0) return null;
 
     const bill = parseFloat(billAmount);
-    const tax = tipOnPreTax ? parseFloat(taxAmount) || 0 : 0;
+    if (isNaN(bill) || bill <= 0) return null;
+
+    const tax = tipOnPreTax && taxAmount.trim() ? parseFloat(taxAmount) || 0 : 0;
 
     return calculateTipSplit({
       billAmount: bill,
@@ -75,7 +85,7 @@ export default function TipCalculator() {
       tipOnPreTax,
       roundUp,
     });
-  }, [billAmount, tipPercentage, numberOfPeople, tipOnPreTax, taxAmount, roundUp, errors]);
+  }, [billAmount, isBillEmpty, tipPercentage, numberOfPeople, tipOnPreTax, taxAmount, roundUp, errors]);
 
   const handleTipOptionClick = (percentage: number) => {
     setIsCustomTip(false);
@@ -101,13 +111,13 @@ export default function TipCalculator() {
   };
 
   const handleReset = () => {
-    setBillAmount('100.00');
+    setBillAmount('');
     setTipPercentage(15);
     setCustomTip('');
     setIsCustomTip(false);
     setNumberOfPeople(2);
     setTipOnPreTax(false);
-    setTaxAmount('10.00');
+    setTaxAmount('');
     setRoundUp('none');
   };
 
@@ -125,6 +135,8 @@ export default function TipCalculator() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const hasErrors = Object.keys(errors).length > 0;
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-violet-500 selection:text-white">
@@ -344,7 +356,7 @@ export default function TipCalculator() {
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="10.00"
+                        placeholder="0.00"
                         value={taxAmount}
                         onChange={(e) => setTaxAmount(e.target.value)}
                         className={`w-full pl-7 pr-3 py-2 bg-slate-900 border rounded-xl text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-violet-500 ${
@@ -409,7 +421,7 @@ export default function TipCalculator() {
           {/* Results Column */}
           <div className="lg:col-span-5 space-y-6">
             {result ? (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fadeIn">
                 {/* Primary Hero Result Card */}
                 <div className="rounded-3xl p-7 bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 text-white shadow-2xl relative overflow-hidden">
                   <div className="flex items-center justify-between mb-4">
@@ -510,13 +522,36 @@ export default function TipCalculator() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-8 text-center space-y-3">
+            ) : hasErrors ? (
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-8 text-center space-y-3 animate-shake">
                 <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" />
                 <h3 className="text-base font-bold text-white">Please check your inputs</h3>
                 <p className="text-xs text-slate-400">
-                  Resolve the errors above to see your split bill and tip calculation.
+                  Resolve the error indicated on the left to see your split bill and tip calculation.
                 </p>
+              </div>
+            ) : (
+              /* Clean Welcome / Empty State when user first opens the page */
+              <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/60 rounded-3xl p-8 sm:p-10 text-center space-y-5 flex flex-col items-center justify-center min-h-[380px]">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600/20 to-indigo-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shadow-inner">
+                  <Receipt className="w-8 h-8" />
+                </div>
+                <div className="space-y-1.5 max-w-sm">
+                  <h3 className="text-lg font-bold text-white">Ready to Calculate</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Enter your bill amount on the left to see the tip, total, and per-person split in real time.
+                  </p>
+                </div>
+                <div className="w-full pt-4 border-t border-slate-700/50 grid grid-cols-2 gap-3 text-left">
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-400">
+                    <span className="font-semibold text-slate-200 block mb-0.5">⚡ Live Updates</span>
+                    Calculates tip and split instantly as you type.
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-400">
+                    <span className="font-semibold text-slate-200 block mb-0.5">🧾 Pre-Tax Option</span>
+                    Optionally exclude sales tax from the tip amount.
+                  </div>
+                </div>
               </div>
             )}
           </div>
