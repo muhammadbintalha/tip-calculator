@@ -58,6 +58,12 @@
   - Formatter verification.
 - Ran test suite: All 11 tests passed successfully.
 
+### Iteration 5: Pristine Initial State & Empty State UX
+- Removed static initial values (`billAmount` starts empty `''`, `taxAmount` starts empty `''`).
+- Suppressed false validation warnings on fresh page loads so user is not greeted by error alerts.
+- Added a welcoming "Ready to Calculate" placeholder card with feature highlights on the right column until the user inputs their bill.
+- Verified live recalculation and build integrity with Vitest and `next build`.
+
 ---
 
 ## 3. Product Documentation Authoring
